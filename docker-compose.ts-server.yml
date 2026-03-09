@@ -51,8 +51,6 @@ services:
     ports:
       - "9987:9987/udp" # voice (example)
       - "30033:30033/tcp" # file transfer (recommended)
-    environment:
-      - TSSERVER_LICENSE_ACCEPTED=accept
     # Persist server data/config.
     volumes:
       - ts-server-data:/var/tsserver
