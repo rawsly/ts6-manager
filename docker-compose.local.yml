@@ -21,6 +21,8 @@ services:
     volumes:
       - backend-data:/app/packages/backend/data
       - music-data:/data/music
+      - ./yt-dlp.conf:/etc/yt-dlp.conf:ro
+      - ./youtube-cookies.txt:/data/youtube-cookies.txt
     ports:
       - "3001:3001"
     networks:
