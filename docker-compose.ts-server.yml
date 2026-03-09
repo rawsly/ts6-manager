@@ -24,6 +24,18 @@ services:
     container_name: ts-server
     restart: unless-stopped
 
+    environment:
+      # Required for the server to start
+      - TSSERVER_LICENSE_ACCEPTED=accept
+
+      # Enable query interfaces (disabled by default)
+      - TSSERVER_QUERY_HTTP_ENABLED=1
+      - TSSERVER_QUERY_HTTP_PORT=10080
+
+      # Optional: enable SSH query (used by TS6 Manager for events + file browser features)
+      - TSSERVER_QUERY_SSH_ENABLED=1
+      - TSSERVER_QUERY_SSH_PORT=10022
+
     # Attach to the shared network so the TS6 backend container can reach it.
     networks:
       - ts-server-net
@@ -38,11 +50,12 @@ services:
     # Replace these with the correct ports for your TeamSpeak server.
     ports:
       - "9987:9987/udp" # voice (example)
+      - "30033:30033/tcp" # file transfer (recommended)
     environment:
       - TSSERVER_LICENSE_ACCEPTED=accept
     # Persist server data/config.
     volumes:
-      - ts-server-data:/var/lib/teamspeak
+      - ts-server-data:/var/tsserver
 
 volumes:
   ts-server-data:

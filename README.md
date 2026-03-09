@@ -200,7 +200,8 @@ This project expects (defaults):
    - Use the TeamSpeak-provided server image if one exists for your target version, or run the official server binaries inside a base Linux image.
    - Keep `10080` and `10022` **internal-only** (use `expose`, not `ports`).
 
-   Example (template — adjust image/command/ports to match your TeamSpeak server version):
+   Example (template — adjust image/command/ports to match your TeamSpeak server version).
+   Note: On TeamSpeak 6, the query interfaces can be disabled by default; enable them via env/config:
 
    ```yaml
    services:
@@ -214,11 +215,16 @@ This project expects (defaults):
        expose:
          - "10080" # WebQuery HTTP
          - "10022" # SSH query
+       environment:
+         - TSSERVER_LICENSE_ACCEPTED=accept
+         - TSSERVER_QUERY_HTTP_ENABLED=1
+         - TSSERVER_QUERY_SSH_ENABLED=1
        # Public (clients connect to this)
        ports:
          - "9987:9987/udp" # voice (example)
+         - "30033:30033/tcp" # file transfer (recommended)
        volumes:
-         - ts-server-data:/var/lib/teamspeak
+         - ts-server-data:/var/tsserver
 
    volumes:
      ts-server-data:
