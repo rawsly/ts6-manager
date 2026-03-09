@@ -22,6 +22,7 @@ services:
     networks:
       - ts6-network
       - coolify-ts
+      - ts-server-net
 
   frontend:
     image: clusterzx/ts6-manager:frontend
@@ -42,3 +43,6 @@ networks:
   coolify-ts:
     external: true
     name: h4c0kkoccks8sw8woow88o84
+  ts-server-net:
+    external: true
+    name: ts-server-net

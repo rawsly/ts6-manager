@@ -25,6 +25,7 @@ services:
       - "3001:3001"
     networks:
       - ts6-network
+      - ts-server-net
 
   frontend:
     build:
@@ -48,3 +49,6 @@ volumes:
 networks:
   ts6-network:
     driver: bridge
+  ts-server-net:
+    external: true
+    name: ts-server-net
