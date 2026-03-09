@@ -26,6 +26,7 @@ services:
       - "3001:3001"
     networks:
       - ts6-network
+      - ts-server-net
 
   frontend:
     image: clusterzx/ts6-manager:frontend
@@ -47,3 +48,6 @@ volumes:
 networks:
   ts6-network:
     driver: bridge
+  ts-server-net:
+    external: true
+    name: ts-server-net

@@ -1,0 +1,55 @@
+version: '3.8'
+
+# Separate stack for the TeamSpeak server.
+# It connects to TS6 Manager via the external Docker network: ts-server-net
+#
+# 1) Create the shared network once:
+#    docker network create ts-server-net
+#
+# 2) Start TS6 Manager (your existing stack):
+#    docker compose up -d
+#
+# 3) Start this TS server stack:
+#    docker compose -f docker-compose.ts-server.yml up -d
+#
+# In TS6 Manager UI -> Settings -> Connections:
+#   Host: ts-server
+#   WebQuery Port: 10080
+#   SSH Port: 10022 (optional but needed for events + file browser)
+#
+# NOTE: This is a template. You MUST adjust the image/command/env/volumes/ports
+# to match the TeamSpeak server version you run.
+
+services:
+  ts-server:
+    image: teamspeaksystems/teamspeak6-server:latest
+    container_name: ts-server
+    restart: unless-stopped
+
+    # Attach to the shared network so the TS6 backend container can reach it.
+    networks:
+      - ts-server-net
+
+    # Internal-only ports (NOT published to the internet).
+    # These are reachable from containers on ts-server-net.
+    expose:
+      - "10080" # WebQuery HTTP
+      - "10022" # ServerQuery over SSH (if enabled)
+
+    # Public client-facing ports (publish only what you need).
+    # Replace these with the correct ports for your TeamSpeak server.
+    ports:
+      - "9987:9987/udp" # voice (example)
+
+    # Persist server data/config.
+    volumes:
+      - ts-server-data:/var/lib/teamspeak
+
+volumes:
+  ts-server-data:
+    driver: local
+
+networks:
+  ts-server-net:
+    external: true
+    name: ts-server-net

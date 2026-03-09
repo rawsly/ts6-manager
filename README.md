@@ -180,6 +180,109 @@ networks:
     name: your-ts-server-network-id
 ```
 
+### Running the TeamSpeak Server in the Same VM (Lightsail)
+
+If you run the TeamSpeak server **inside the same Lightsail VM** as TS6 Manager, the most reliable setup is:
+
+- TeamSpeak server runs as a Docker service
+- TS6 Manager backend connects to it over the **internal Docker network** (service DNS name)
+- Only the **voice port** is exposed publicly; **WebQuery** and **SSH query** stay internal
+
+This project expects (defaults):
+
+- **WebQuery HTTP** port: `10080`
+- **SSH query** port (for events + file browsing): `10022`
+
+#### Option A (recommended): TeamSpeak server as a Docker service
+
+1. Add a `ts-server` service to your Compose file and attach it to the existing `ts6-network`.
+
+   - Use the TeamSpeak-provided server image if one exists for your target version, or run the official server binaries inside a base Linux image.
+   - Keep `10080` and `10022` **internal-only** (use `expose`, not `ports`).
+
+   Example (template — adjust image/command/ports to match your TeamSpeak server version):
+
+   ```yaml
+   services:
+     ts-server:
+       image: your-teamspeak-server-image
+       container_name: ts-server
+       restart: unless-stopped
+       networks:
+         - ts6-network
+       # Internal only (reachable from the backend container)
+       expose:
+         - "10080" # WebQuery HTTP
+         - "10022" # SSH query
+       # Public (clients connect to this)
+       ports:
+         - "9987:9987/udp" # voice (example)
+       volumes:
+         - ts-server-data:/var/lib/teamspeak
+
+   volumes:
+     ts-server-data:
+   ```
+
+2. In the TS6 Manager UI, go to **Settings → Connections** and add a server with:
+
+   - **Host**: `ts-server` (the Compose service name)
+   - **WebQuery Port**: `10080`
+   - **API key**: the TeamSpeak WebQuery API key you generated on the server
+   - **SSH Port** (optional but recommended for events + file browser): `10022`
+   - **SSH user/pass**: your TeamSpeak query SSH credentials (if enabled)
+
+3. On Lightsail, only open the public client ports you actually need (typically the voice UDP port). Do **not** open `10080` / `10022` to the internet unless you explicitly want remote access to those services.
+
+#### Option B: TeamSpeak server on the host OS (no TS container)
+
+If the TeamSpeak server runs directly on the VM (systemd/service), the backend container cannot reach `127.0.0.1` on the host by default. Use Docker’s host-gateway mapping:
+
+```yaml
+services:
+  backend:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+Then in **Settings → Connections** use:
+
+- **Host**: `host.docker.internal`
+- **WebQuery Port**: whatever your host service listens on (default `10080`)
+- **SSH Port**: whatever your host service listens on (default `10022`)
+
+> Tip: If you only want TS6 Manager to access WebQuery/SSH locally, bind those TeamSpeak listeners to `127.0.0.1` (or the VM’s private interface) and keep them closed in Lightsail firewall.
+
+#### Option C: TeamSpeak server as a separate Compose stack (recommended for “split deployments”)
+
+If you want the TS server and TS6 Manager to be deployed/managed separately, run them as **two different Compose projects** connected by a **shared external Docker network**.
+
+1. Create the shared network once (on the VM):
+
+```bash
+docker network create ts-server-net
+```
+
+2. Ensure the TS6 Manager backend joins that network (already supported via an external `ts-server-net` network).
+
+3. Run your TeamSpeak server using a separate Compose file that attaches to the same network.
+
+This repo includes a template you can copy/adapt: [`docker-compose.ts-server.yml`](docker-compose.ts-server.yml)
+
+Start it:
+
+```bash
+docker compose -f docker-compose.ts-server.yml up -d
+```
+
+4. In the TS6 Manager UI (**Settings → Connections**), set:
+
+- **Host**: `ts-server` (service/container name in the TS server compose)
+- **WebQuery Port**: `10080`
+- **SSH Port**: `10022` (optional)
+
+Keep WebQuery/SSH internal-only (use `expose` in the TS server compose). Only publish the TS client-facing ports you actually need.
+
 ## Development
 
 Requires: Node.js 20+, pnpm 9+
