@@ -23,6 +23,8 @@ services:
     image: teamspeaksystems/teamspeak6-server:latest
     container_name: ts-server
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
     environment:
       # Required for the server to start
@@ -54,6 +56,16 @@ services:
     # Persist server data/config.
     volumes:
       - ts-server-data:/var/tsserver
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ts-server-watchtower
+    restart: unless-stopped
+    profiles:
+      - autoupdate
+    command: --label-enable --cleanup --rolling-restart --interval 21600
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   ts-server-data:

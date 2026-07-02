@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh TS6 server container
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ts6-manager
+ExecStart=/bin/bash /opt/ts6-manager/scripts/refresh-ts-server.sh

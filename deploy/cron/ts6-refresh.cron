@@ -1,0 +1,1 @@
+0 */6 * * * root cd /opt/ts6-manager && /bin/bash scripts/refresh-ts-server.sh >> /var/log/ts6-refresh.log 2>&1

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TS6 refresh every 6 hours
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=6h
+Persistent=true
+Unit=ts6-refresh.service
+
+[Install]
+WantedBy=timers.target

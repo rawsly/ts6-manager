@@ -89,7 +89,7 @@ Get started quickly with pre-built flow templates. Covers common use cases like 
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   Frontend   │────▶│   Backend    │────▶│  TS Server      │
+│   Frontend   │────▶│   Backend    │────▶│  TS Server     │
 │  React SPA   │     │  Express API │     │  WebQuery HTTP  │
 │  nginx :80   │     │  Node :3001  │     │  SSH (events)   │
 └──────────────┘     └──────┬───────┘     └─────────────────┘
@@ -182,7 +182,7 @@ networks:
 
 ### Running the TeamSpeak Server in the Same VM (Lightsail)
 
-If you run the TeamSpeak server **inside the same Lightsail VM** as TS6 Manager, the most reliable setup is:
+If you run the TeamSpeak server **inside the same Lightsail Linux host** as TS6 Manager, the most reliable setup is:
 
 - TeamSpeak server runs as a Docker service
 - TS6 Manager backend connects to it over the **internal Docker network** (service DNS name)
@@ -288,6 +288,88 @@ docker compose -f docker-compose.ts-server.yml up -d
 - **SSH Port**: `10022` (optional)
 
 Keep WebQuery/SSH internal-only (use `expose` in the TS server compose). Only publish the TS client-facing ports you actually need.
+
+### Lightsail Recovery (production Linux)
+
+Run these commands on the Lightsail host in your project directory:
+
+```bash
+# 1) Ensure shared network exists
+docker network create ts-server-net || true
+
+# 2) Ensure manager stack is up
+docker compose up -d
+
+# 3) Refresh TeamSpeak server image and recreate container
+docker compose -f docker-compose.ts-server.yml pull ts-server
+docker compose -f docker-compose.ts-server.yml up -d --force-recreate ts-server
+
+# 4) Verify runtime
+docker compose -f docker-compose.ts-server.yml ps
+docker logs --tail=120 ts-server
+```
+
+If backend cannot reconnect, validate in TS6 Manager connection settings:
+
+- Host: `ts-server`
+- WebQuery Port: `10080`
+- SSH Port: `10022` (if used)
+
+What this does:
+
+- `docker compose pull` downloads the newest TS6 server image tag you are using.
+- `docker compose up -d --force-recreate ts-server` stops and recreates only the TS server container with the same ports, volumes, and environment variables.
+- The backend then reconnects over the internal Docker network `ts-server-net` using the service name `ts-server`.
+- The health loop checks `http://127.0.0.1:3001/api/health` and only reports success after TS6 Manager itself is back online.
+
+### Optional Autonomous Updates (TS server)
+
+Watchtower can auto-pull new images and restart labeled containers, but it does not verify that TS6 came back healthy.
+For production on Lightsail, the safer autonomous option is the Bash refresh script below, which pulls the image, recreates the TS server, and waits for the backend health endpoint to recover.
+
+Run it manually:
+
+```bash
+bash scripts/refresh-ts-server.sh
+```
+
+If you still want Watchtower, keep the `autoupdate` profile enabled:
+
+```bash
+docker compose -f docker-compose.ts-server.yml --profile autoupdate up -d
+```
+
+Notes:
+
+- Auto-updates are convenient for TS6 beta licensing cycles but can still introduce upstream breaking changes.
+- If you want stricter control, pin a specific image tag and run the refresh script on a schedule.
+- The script uses [`/api/health`](packages/backend/src/app.ts#L47) to confirm the backend is back online.
+- On a Linux host, schedule it with a systemd timer if you want the most reliable always-on setup, or cron if you want the simplest option.
+
+Systemd timer install:
+
+```bash
+sudo cp deploy/systemd/ts6-refresh.service /etc/systemd/system/
+sudo cp deploy/systemd/ts6-refresh.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ts6-refresh.timer
+systemctl list-timers ts6-refresh.timer
+```
+
+Cron install:
+
+```bash
+sudo cp deploy/cron/ts6-refresh.cron /etc/cron.d/ts6-refresh
+sudo chmod 644 /etc/cron.d/ts6-refresh
+```
+
+The cron template runs as `root` so Docker access is available without extra group setup.
+
+Example cron entry:
+
+```cron
+0 */6 * * * cd /path/to/ts6-manager && /bin/bash scripts/refresh-ts-server.sh >> /var/log/ts6-refresh.log 2>&1
+```
 
 ## Development
 
